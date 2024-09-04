@@ -1,5 +1,7 @@
 # reference: An improved genetic algorithm with co-evolutionary strategy for global path planning of multiple mobile robots
 # https://shorturl.at/0aLWh
+#還沒有加上菁英個體的保留
+
 import numpy as np
 import random
 
@@ -54,11 +56,28 @@ def mutation(path):
     return path
 
 # 交叉干擾函數，檢查路徑是否衝突
+# def cross_interference(path1, path2):
+#     for i in range(min(len(path1), len(path2))):
+#         if path1[i] == path2[i]:  # 簡單檢查是否在同一時間點到達同一位置
+#             return True
+#     return False
+
+# 判斷路徑是否相交並設置衝突係數
 def cross_interference(path1, path2):
+    intersecting = False
+    conflicting = False
     for i in range(min(len(path1), len(path2))):
-        if path1[i] == path2[i]:  # 簡單檢查是否在同一時間點到達同一位置
-            return True
-    return False
+        if path1[i] == path2[i]:
+            intersecting = True
+            if i == len(path1) - 1 or i == len(path2) - 1:  # 同時到達終點不算衝突
+                continue
+            conflicting = True
+            break
+    if conflicting:
+        return 10  # 衝突
+    elif intersecting:
+        return 0  # 相交但不衝突
+    return 0  # 不相交也不衝突
 
 # CIGA主函數
 def CIGA(environment, start_positions, end_positions):
@@ -93,7 +112,9 @@ def CIGA(environment, start_positions, end_positions):
             for j in range(i + 1, NUM_ROBOTS):
                 for ind_i in new_populations[i]:
                     for ind_j in new_populations[j]:
-                        if cross_interference(ind_i, ind_j):
+                        # 使用cross_interference函數的返回值來決定如何處理衝突
+                        interference_value = cross_interference(ind_i, ind_j)
+                        if interference_value > 0:  # 表示有衝突
                             # 簡單解決衝突：重新隨機初始化一個解
                             new_populations[j][new_populations[j].index(ind_j)] = encode_path(
                                 [start_positions[j]] +
@@ -103,8 +124,9 @@ def CIGA(environment, start_positions, end_positions):
 
         populations = new_populations
         
+        #這邊應該可以刪掉
         # 只打印第1個機器人的最佳適應度值
-        best_fitness = max([fitness_function(decode_path(ind), environment) for ind in populations[0]])
+        #best_fitness = max([fitness_function(decode_path(ind), environment) for ind in populations[0]])
         #print(f"Generation {generation}: Best Fitness = {best_fitness}")
 
     # 印出每個機器人最終的最佳路徑
