@@ -148,7 +148,9 @@ def CIGA(environment, start_positions, end_positions):
     for robot_index in range(NUM_ROBOTS):
         best_individual = max(populations[robot_index], key=lambda ind: fitness_function(decode_path(ind), environment))
         best_path = decode_path(best_individual)
-        print(f"Robot {robot_index + 1} final path: {best_path}")
+        best_path_length = len(best_path)
+        print(f"Robot {robot_index + 1} final path: {best_path}, length: {best_path_length}")
+
 
 if __name__ == "__main__":
     env = create_environment()
