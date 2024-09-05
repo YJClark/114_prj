@@ -27,8 +27,19 @@ def encode_path(path):
 def decode_path(encoded_path):
     return [(int(p / 10), p % 10) for p in encoded_path]
 
-# 計算適應度函數
+# 檢查路徑是否穿越障礙物
+def is_path_valid(path, environment):
+    for node in path:
+        x, y = node
+        if environment[x, y] == 1:
+            return False
+    return True
+
+# 計算fitness
 def fitness_function(path, environment):
+    if not is_path_valid(path, environment):
+        return 1e-6  # 如果路徑經過障礙物，給予極低的適應度值
+    
     path_length = sum(np.sqrt((path[i][0] - path[i-1][0])**2 + (path[i][1] - path[i-1][1])**2) for i in range(1, len(path)))
     safety = sum(np.min([np.linalg.norm(np.array(p) - np.array(obs)) for obs in np.argwhere(environment == 1)]) for p in path)
     smoothness = sum(np.abs(path[i][0] - 2 * path[i-1][0] + path[i-2][0]) + np.abs(path[i][1] - 2 * path[i-1][1] + path[i-2][1]) for i in range(2, len(path)))
@@ -39,28 +50,32 @@ def selection(population, fitnesses):
     selected_index = random.choices(range(len(population)), weights=fitnesses, k=1)[0]
     return population[selected_index]
 
-# 交叉操作
-def crossover(parent1, parent2):
+# crossover
+def crossover(parent1, parent2, start, end, environment):
     if random.random() < CROSSOVER_PROBABILITY:
         cross_point = random.randint(1, min(len(parent1), len(parent2)) - 2)
         child1 = parent1[:cross_point] + parent2[cross_point:]
         child2 = parent2[:cross_point] + parent1[cross_point:]
+        # 确保孩子路径的起点和终点固定
+        child1[0], child1[-1] = start, end
+        child2[0], child2[-1] = start, end
+        if not is_path_valid(decode_path(child1), environment):
+            child1 = parent1  # 如果生成的孩子路徑無效，則使用原始父代
+        if not is_path_valid(decode_path(child2), environment):
+            child2 = parent2
         return child1, child2
     return parent1, parent2
 
-# 突變操作
-def mutation(path):
+# 突變
+def mutation(path, start, end, environment):
     if random.random() < MUTATION_PROBABILITY:
-        mutate_point = random.randint(0, len(path) - 1)
+        mutate_point = random.randint(1, len(path) - 2)  # 確保不會突變到起點或終點
         path[mutate_point] = random.choice(range(10*10))
+    # 確保路徑的起點和終點固定
+    path[0], path[-1] = start, end
+    if not is_path_valid(decode_path(path), environment):
+        path = encode_path(decode_path(path))  # 存valid突變路徑
     return path
-
-# 交叉干擾函數，檢查路徑是否衝突
-# def cross_interference(path1, path2):
-#     for i in range(min(len(path1), len(path2))):
-#         if path1[i] == path2[i]:  # 簡單檢查是否在同一時間點到達同一位置
-#             return True
-#     return False
 
 # 判斷路徑是否相交並設置衝突係數
 def cross_interference(path1, path2):
@@ -101,9 +116,9 @@ def CIGA(environment, start_positions, end_positions):
             for _ in range(POPULATION_SIZE // 2):
                 parent1 = selection(populations[robot_index], fitnesses)
                 parent2 = selection(populations[robot_index], fitnesses)
-                child1, child2 = crossover(parent1, parent2)
-                child1 = mutation(child1)
-                child2 = mutation(child2)
+                child1, child2 = crossover(parent1, parent2, encode_path([start_positions[robot_index]])[0], encode_path([end_positions[robot_index]])[0], environment)
+                child1 = mutation(child1, encode_path([start_positions[robot_index]])[0], encode_path([end_positions[robot_index]])[0], environment)
+                child2 = mutation(child2, encode_path([start_positions[robot_index]])[0], encode_path([end_positions[robot_index]])[0], environment)
                 new_population.extend([child1, child2])
             new_populations.append(new_population)
 
