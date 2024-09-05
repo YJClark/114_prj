@@ -1,6 +1,10 @@
 # reference: An improved genetic algorithm with co-evolutionary strategy for global path planning of multiple mobile robots
 # https://shorturl.at/0aLWh
-#還沒有加上菁英個體的保留
+#還沒有加上elite的保留
+
+#idea1:如果把障礙物也當可移動的
+#idea2:斜著走的地方改random十字
+#idea3: length要修正
 
 import numpy as np
 import random
@@ -56,7 +60,7 @@ def crossover(parent1, parent2, start, end, environment):
         cross_point = random.randint(1, min(len(parent1), len(parent2)) - 2)
         child1 = parent1[:cross_point] + parent2[cross_point:]
         child2 = parent2[:cross_point] + parent1[cross_point:]
-        # 确保孩子路径的起点和终点固定
+        # 確保路徑的起點和終點固定
         child1[0], child1[-1] = start, end
         child2[0], child2[-1] = start, end
         if not is_path_valid(decode_path(child1), environment):
@@ -122,7 +126,7 @@ def CIGA(environment, start_positions, end_positions):
                 new_population.extend([child1, child2])
             new_populations.append(new_population)
 
-        # 協同演化部分
+        # co-evolution
         for i in range(NUM_ROBOTS):
             for j in range(i + 1, NUM_ROBOTS):
                 for ind_i in new_populations[i]:
@@ -139,10 +143,6 @@ def CIGA(environment, start_positions, end_positions):
 
         populations = new_populations
         
-        #這邊應該可以刪掉
-        # 只打印第1個機器人的最佳適應度值
-        #best_fitness = max([fitness_function(decode_path(ind), environment) for ind in populations[0]])
-        #print(f"Generation {generation}: Best Fitness = {best_fitness}")
 
     # 印出每個機器人最終的最佳路徑
     for robot_index in range(NUM_ROBOTS):
