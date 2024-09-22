@@ -1,5 +1,6 @@
 # reference: An improved genetic algorithm with co-evolutionary strategy for global path planning of multiple mobile robots
 # https://shorturl.at/0aLWh
+# 跑得有點慢，目前僅3機器人 5障礙
 #還沒有加上elite的保留
 
 #idea1:如果把障礙物也當可移動的
