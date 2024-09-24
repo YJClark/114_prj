@@ -88,15 +88,29 @@ def bfs_min_moves(start, target):
 #     [2, 4, 1]
 # ]
 
+# map_start = [
+# 	[0, 1, 0],
+# 	[-1, 2, -1],
+# 	[3, 4, 0]
+# ]
+# map_end = [
+# 	[2, 4, 0],
+# 	[-1, 0, -1],
+# 	[1, 0, 3]
+# ]
+
+# 4*4 tar3 sp3
 map_start = [
-	[0, 1, 0],
-	[-1, 2, -1],
-	[3, 4, 0]
+    [-1,-1, 4,-1],
+    [ 0, 0,-1, 1],
+    [-1,-1, 3, 0],
+    [2,-1,-1,-1]
 ]
 map_end = [
-	[2, 4, 0],
-	[-1, 0, -1],
-	[1, 0, 3]
+    [-1,-1, 3,-1],
+    [ 0, 4,-1, 2],
+    [-1,-1, 0, 1],
+    [ 0,-1,-1,-1]
 ]
 # Find and print all unique valid end states
 # valid_end_states = find_all_valid_end_states(map_end)
