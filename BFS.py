@@ -10,12 +10,8 @@ def print_grid(state):
         print(' '.join(str(x) if x != 0 else '_' for x in row))
     print()
 
-def print_queue(queue):
-    print('deque(')
-    for i in queue:
-        print(f'\t{i}')
-    print(')')
 
+#以下在做post process
 def find_movements(prev_step, current_step):
     """
     找出從 prev_step 到 current_step 的所有移動。
@@ -71,125 +67,120 @@ def get_path(start, end):
 
 def can_merge(current_merged, new_movements, current_positions):
     """
-    判斷是否可以將 new_movements 合併到 current_merged。
+    判斷是否可以將 new_movements 合併到 current_merged
+    
     條件：
-    1. 每個方格在同一時間步內只能移動一次
-    2. 每個方格每步只能移動一格（曼哈頓距離 <= 1
-    3. 不允許垂直方向的進出衝突，但允許同方向的同時進出
-    4. 移動路徑上不能有其他靜止的方格(即不能有>0 or -1的格子)
-    5. 如果目標格也在同方向移動，則允許移動到該格
+    1. 每個方格在同一時間只能移動一格
+    2. 不允許垂直方向的進出衝突，但允許同方向的同時進出
+    3. 移動目標必須是空白格，除非目標格也在同方向移動
     """
     combined = current_merged.copy()
+    
+    # 檢查條件1：每個方格只能移動一次
     for val, move in new_movements.items():
         if val in combined:
             return False
         combined[val] = move
-
-    # 檢查每個方格的移動距離和垂直衝突
-    vertical_moves = {}
-    horizontal_moves = {}
+    
+    # 檢查所有移動
+    vertical_moves = {}  # 記錄每列的垂直移動 {列: [方向]}
+    horizontal_moves = {}  # 記錄每行的水平移動 {行: [方向]}
+    
     for val, ((i1, j1), (i2, j2)) in combined.items():
-        # 檢查移動距離
-        distance = abs(i1 - i2) + abs(j1 - j2)
-        if distance > 1:
+        # 確保每次只移動一格
+        if abs(i2 - i1) + abs(j2 - j1) > 1:
             return False
-
+        
         # 記錄移動方向
         if i1 != i2:  # 垂直移動
-            direction = i2 - i1
-            if j1 in vertical_moves:
-                if vertical_moves[j1] * direction < 0:
-                    return False  # 垂直方向衝突
-            vertical_moves[j1] = direction
+            direction = 1 if i2 > i1 else -1
+            if j1 not in vertical_moves:
+                vertical_moves[j1] = []
+            vertical_moves[j1].append(direction)
         elif j1 != j2:  # 水平移動
-            direction = j2 - j1
-            if i1 in horizontal_moves:
-                horizontal_moves[i1].append((val, direction))
-            else:
-                horizontal_moves[i1] = [(val, direction)]
-
-    # 構建移動路徑和檢查目標格
-    all_paths = {}
+            direction = 1 if j2 > j1 else -1
+            if i1 not in horizontal_moves:
+                horizontal_moves[i1] = []
+            horizontal_moves[i1].append(direction)
+    
+    # 檢查條件2：垂直方向的進出衝突
+    for column, directions in vertical_moves.items():
+        if len(set(directions)) > 1:  # 如果同一列有不同方向的移動
+            return False
+    
+    # 檢查條件3：移動目標必須是空白格或同向移動的方格
     for val, ((i1, j1), (i2, j2)) in combined.items():
-        path = get_path((i1, j1), (i2, j2))
-        all_paths[val] = path
-
-        # 檢查目標格
         target_pos = (i2, j2)
         if target_pos in current_positions:
             target_val = current_positions[target_pos]
             if target_val not in combined:
-                return False
+                return False  # 目標位置有靜止的方格
             else:
+                # 檢查目標方格是否同向移動
                 target_move = combined[target_val]
-                target_dir = (target_move[1][0] - target_move[0][0],
-                              target_move[1][1] - target_move[0][1])
+                target_dir = (
+                    target_move[1][0] - target_move[0][0],
+                    target_move[1][1] - target_move[0][1]
+                )
                 current_dir = (i2 - i1, j2 - j1)
                 if target_dir != current_dir:
-                    return False
-
-    # 檢查路徑上的其他方格
-    for val, path in all_paths.items():
-        for pos in path:
-            if pos in current_positions:
-                blocking_val = current_positions[pos]
-                if blocking_val not in combined:
-                    return False
-                else:
-                    blocking_move = combined[blocking_val]
-                    blocking_dir = (blocking_move[1][0] - blocking_move[0][0],
-                                    blocking_move[1][1] - blocking_move[0][1])
-                    current_dir = (i2 - i1, j2 - j1)
-                    if blocking_dir != current_dir:
-                        return False
+                    return False  # 目標方格移動方向不同
+    
     return True
+
 
 def merge_steps(steps):
     """
-    將多個步驟合併為最少的步驟數。
+    將多個步驟合併為最少的步驟數
     """
     all_movements = []
     for k in range(1, len(steps)):
         movements = find_movements(steps[k-1], steps[k])
         all_movements.append(movements)
-
+    
     merged_steps = []
     merged_steps_info = []
     current_merged = {}
-    can_be_merged = []
-    positions = {}
-
+    current_positions = {}
+    
     # 初始化當前方格位置
     for i in range(len(steps[0])):
         for j in range(len(steps[0][0])):
             val = steps[0][i][j]
             if val != 0:
-                positions[(i, j)] = val
-
+                current_positions[(i, j)] = val
+    
+    current_step_indices = []
+    
     for step_idx, movements in enumerate(all_movements):
         if not movements:
             continue
-
-        if can_merge(current_merged, movements, positions):
-            can_be_merged.append(step_idx + 1)
+        
+        if can_merge(current_merged, movements, current_positions):
+            current_step_indices.append(step_idx + 1)
+            # 更新當前合併的移動和位置
             for val, ((i1, j1), (i2, j2)) in movements.items():
                 current_merged[val] = ((i1, j1), (i2, j2))
-                del positions[(i1, j1)]
-                positions[(i2, j2)] = val
+                del current_positions[(i1, j1)]
+                current_positions[(i2, j2)] = val
         else:
             if current_merged:
                 merged_steps.append(current_merged)
-                merged_steps_info.append(can_be_merged.copy())
-            current_merged = movements.copy()
-            can_be_merged = [step_idx + 1]
-            for val, ((i1, j1), (i2, j2)) in movements.items():
-                del positions[(i1, j1)]
-                positions[(i2, j2)] = val
-
+                merged_steps_info.append(current_step_indices)
+            current_merged = movements
+            current_step_indices = [step_idx + 1]
+            # 重置並更新位置
+            current_positions = {}
+            for i in range(len(steps[step_idx])):
+                for j in range(len(steps[step_idx][0])):
+                    val = steps[step_idx][i][j]
+                    if val != 0:
+                        current_positions[(i, j)] = val
+    
     if current_merged:
         merged_steps.append(current_merged)
-        merged_steps_info.append(can_be_merged.copy())
-
+        merged_steps_info.append(current_step_indices)
+    
     return merged_steps, merged_steps_info
 
 def print_merged_steps(merged_steps, merged_steps_info):
@@ -201,23 +192,20 @@ def print_merged_steps(merged_steps, merged_steps_info):
         print()
 
 def print_final_grids(steps, merged_steps, merged_steps_info):
-    def print_step_grid(step_grid):
-        for row in step_grid:
-            print(' '.join(str(cell) for cell in row))
-        print()
-
     print("initial state:")
-    print_step_grid(steps[0])
+    print_grid(steps[0])
 
     current_grid = [row.copy() for row in steps[0]]
     for idx, (step, info) in enumerate(zip(merged_steps, merged_steps_info), 1):
         for val, ((i1, j1), (i2, j2)) in step.items():
             current_grid[i1][j1] = 0
             current_grid[i2][j2] = val
-        print(f"steps after merge {idx}:")
-        print_step_grid(current_grid)
+        print(f"Merge step {idx}:")
+        print_grid(current_grid)
 
-# BFS function to find the shortest number of moves and print each step
+
+
+#以下在做BFS
 def bfs_min_moves(start, target):
     size = (len(start), len(start[0]))
     # Convert the puzzle to tuples for hashable states
@@ -295,17 +283,30 @@ def bfs_min_moves(start, target):
 
 
 def main():
-    map_start = [
-        [3, 5, 2],
-        [0, 1, -1],
-        [4, 0, -1]
-    ]
 
-    map_end = [
-        [2, 1, 5],
-        [3, 4, -1],
-        [0, 0, -1]
-    ]
+# id8
+    # map_start = [
+    #     [1, 5, 3],
+    #     [-1, 0, 2],
+    #     [-1, 4, 0]
+    # ]
+
+    # map_end = [
+    #     [ 4, 1, 0],
+    #     [-1, 0, 5],
+    #     [-1, 3, 2]
+    # ]
+    # map_start = [
+    #     [3, 5, 2],
+    #     [0, 1, -1],
+    #     [4, 0, -1]
+    # ]
+
+    # map_end = [
+    #     [2, 1, 5],
+    #     [3, 4, -1],
+    #     [0, 0, -1]
+    # ]
 
 #無解測資 tar8 sp1 id5
     # map_start = [
@@ -321,18 +322,18 @@ def main():
     # ]
 
     # tar8 sp2 id 1
-    # map_start = [
-    #     [-1, 8, 4, 0],
-    #     [1,-1,-1,-1],
-    #     [5, 7, 2, 0],
-    #     [6, 3,-1,-1]
-    # ]
-    # map_end = [
-    #     [-1, 0, 6, 2],
-    #     [7,-1,-1,-1],
-    #     [8, 5, 1, 3],
-    #     [4, 0,-1,-1]
-    # ]
+    map_start = [
+        [-1, 8, 4, 0],
+        [1,-1,-1,-1],
+        [5, 7, 2, 0],
+        [6, 3,-1,-1]
+    ]
+    map_end = [
+        [-1, 0, 6, 2],
+        [7,-1,-1,-1],
+        [8, 5, 1, 3],
+        [4, 0,-1,-1]
+    ]
 
 # Run BFS to find the minimum number of moves and print each step
 # map_start, map_end = readFile()
